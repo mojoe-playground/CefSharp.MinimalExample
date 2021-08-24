@@ -6,6 +6,8 @@ using CefSharp.OffScreen;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -13,9 +15,31 @@ namespace CefSharp.MinimalExample.OffScreen
 {
     public class Program
     {
+        public static void Startup()
+        {
+            // Load required assemblies manually
+            var root = Path.Combine(new FileInfo(Assembly.GetExecutingAssembly().Location).Directory?.FullName, "runtimes", "win" + RuntimeInformation.RuntimeIdentifier.Substring(RuntimeInformation.RuntimeIdentifier.IndexOf('-')));
+            var lib = Path.Combine(root, "lib", "netcoreapp3.1");
+            var native = Path.Combine(root, "native");
+
+            NativeLibrary.Load(Path.Combine(native, "libcef.dll"));
+            Assembly.LoadFrom(Path.Combine(lib, "CefSharp.Core.Runtime.dll"));
+            Assembly.LoadFrom(Path.Combine(lib, "CefSharp.Core.dll"));
+            Assembly.LoadFrom(Path.Combine(lib, "CefSharp.dll"));
+
+            // Run original MinimalExample code
+            Run(Path.Combine(native, "CefSharp.BrowserSubprocess.exe"));
+        }
+
         private static ChromiumWebBrowser browser;
 
         public static int Main(string[] args)
+        {
+            Startup();
+            return 0;
+        }
+
+        public static int Run(string subprocessPath)
         {
 #if ANYCPU
             //Only required for PlatformTarget of AnyCPU
@@ -31,7 +55,8 @@ namespace CefSharp.MinimalExample.OffScreen
             var settings = new CefSettings()
             {
                 //By default CefSharp will use an in-memory cache, you need to specify a Cache Folder to persist data
-                CachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CefSharp\\Cache")
+                CachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CefSharp\\Cache"),
+                BrowserSubprocessPath = subprocessPath
             };
 
             //Perform dependency check to make sure all relevant resources are in our output directory.
